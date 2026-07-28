@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    container_name: daygood-backend
+    restart: unless-stopped
+
+    ports:
+      - "${PORT}:3000"
+
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: ${PORT}
+
+    depends_on:
+      - postgres
+      - redis
+
+    networks:
+      - daygood-network
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: daygood-postgres
+    restart: unless-stopped
+
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - daygood-network
+
+  redis:
+    image: redis:8-alpine
+    container_name: daygood-redis
+    restart: unless-stopped
+
+    ports:
+      - "${REDIS_PORT}:6379"
+
+    networks:
+      - daygood-network
+
+volumes:
+  postgres_data:
+
+networks:
+  daygood-network:
+    driver: bridge

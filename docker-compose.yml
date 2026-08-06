@@ -1,9 +1,10 @@
-
 services:
   backend:
     build: .
     container_name: daygood-backend
     restart: unless-stopped
+    profiles:
+      - production
 
     ports:
       - "${PORT}:3000"

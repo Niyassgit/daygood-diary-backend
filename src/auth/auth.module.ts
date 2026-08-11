@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from 'src/users/users.module';
 import { MailModule } from 'src/mail/mail.module';
+import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 
 @Module({
   imports: [
@@ -11,7 +12,10 @@ import { MailModule } from 'src/mail/mail.module';
     JwtModule.register({}),
     MailModule
   ],
-  providers: [AuthService],
+  providers: [
+    AuthService,
+    RefreshTokenStrategy
+  ],
   controllers: [AuthController]
 })
 export class AuthModule {}

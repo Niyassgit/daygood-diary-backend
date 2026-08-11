@@ -38,4 +38,16 @@ export class UsersService {
             }
         });
     }
+
+    async verifyEmail(userId: string) {
+        return this.prisma.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                emailVerified: true,
+                status: 'ACTIVE'
+            }
+        });
+    }
 }

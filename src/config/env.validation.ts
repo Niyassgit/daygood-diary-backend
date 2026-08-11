@@ -10,4 +10,11 @@ export const envValidationSchema = Joi.object({
 
     REDIS_HOST: Joi.string().required(),
     REDIS_PORT: Joi.number().required(),
+    
+    MAIL_HOST: Joi.string().required(),
+    MAIL_PORT: Joi.number().required(),
+    MAIL_SECURE: Joi.boolean().required(),
+    MAIL_USER: Joi.string().email().required(),
+    MAIL_PASSWORD: Joi.string().required(),
+    MAIL_FROM: Joi.string().required(),
 })

@@ -6,6 +6,7 @@ import { UsersModule } from 'src/users/users.module';
 import { MailModule } from 'src/mail/mail.module';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { AccessTokenStrategy } from './strategies/access-token.strategy';
   providers: [
     AuthService,
     AccessTokenStrategy,
-    RefreshTokenStrategy
+    RefreshTokenStrategy,
+    RolesGuard
   ],
   controllers: [AuthController]
 })

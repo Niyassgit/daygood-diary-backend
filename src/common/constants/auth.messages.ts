@@ -36,4 +36,9 @@ export const AUTH_MESSAGES = {
   EMAIL_ALREADY_VERIFIED: 'Email already verified',
 
   EMAIL_VERIFIED: 'Email verified successfully',
+
+  USER_NOT_AUTHENTICATED:'User not authenticated',
+
+  PERMISSION_DENIED:
+  'You do not have permission to access this resource'
 } as const;

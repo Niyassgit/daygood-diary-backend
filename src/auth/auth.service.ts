@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { JwtService ,JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenPayload } from './types/refresh-token-payload';
+import { AUTH_CONSTANTS } from 'src/common/constants/auth.constants';
+import { AUTH_MESSAGES } from 'src/common/constants/auth.messages';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +28,7 @@ export class AuthService {
         const existingUser = await this.usersService.findByEmail(dto.email);
 
         if(existingUser) {
-            throw new ConflictException('Email already exists');
+            throw new ConflictException(AUTH_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         const hashedPassword = await argon2.hash(dto.password);
@@ -43,7 +45,7 @@ export class AuthService {
           await this.redisService.set(
             key,
             user.id,
-            60 * 60 * 24
+            AUTH_CONSTANTS.REDIS_STORE_TTL
           ); // Store the token in Redis with a TTL of 24 hours
          
     
@@ -52,7 +54,7 @@ export class AuthService {
             token
           );
 
-        return { message: 'Registration successful. Please verify your email.' };
+        return { message: AUTH_MESSAGES.REGISTRATION_SUCCESS };
     }
 
     async verifyEmail(token: string) {
@@ -61,7 +63,7 @@ export class AuthService {
         const userId = await this.redisService.get(key);
 
         if (!userId) {
-            throw new BadRequestException('Invalid or expired verification link');
+            throw new BadRequestException(AUTH_MESSAGES.INVALID_VERIFICATION_LINK);
         }
 
         const user = await this.usersService.findById(userId);
@@ -73,7 +75,7 @@ export class AuthService {
         if(user.emailVerified){
             await this.redisService.delete(key); 
 
-            return { message: 'Email already verified' };
+            return { message: AUTH_MESSAGES.EMAIL_ALREADY_EXISTS };
         }
 
         await this.usersService.verifyEmail(userId);
@@ -81,7 +83,7 @@ export class AuthService {
         await this.redisService.delete(key); // Delete the token from Redis after successful verification
 
 
-        return { message: 'Email verified successfully' };
+        return { message: AUTH_MESSAGES.EMAIL_VERIFIED };
 
          
     }
@@ -90,7 +92,7 @@ export class AuthService {
         const user = await this.usersService.findByEmail(dto.email);
 
         if(!user){
-            throw new UnauthorizedException('Invalid email or password');
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
         }
 
         const passwordValid =await argon2.verify(
@@ -99,15 +101,15 @@ export class AuthService {
         );
 
         if(!passwordValid){
-            throw new UnauthorizedException('Invalid email or password');
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
         }
 
         if(!user.emailVerified){
-            throw new ForbiddenException('Please verify your email before logging in');
+            throw new ForbiddenException(AUTH_MESSAGES.EMAIL_NOT_VERIFIED);
         }
 
         if(user.status !== 'ACTIVE'){
-            throw new ForbiddenException('Your account is not active. Please contact support.');
+            throw new ForbiddenException(AUTH_MESSAGES.ACCOUNT_NOT_ACTIVE);
         }
 
         const sessionId = uuidv4();
@@ -116,9 +118,9 @@ export class AuthService {
         const refreshToken = await this.generateRefreshToken(user.id, sessionId);
 
         await this.redisService.set(
-       `auth:refresh:${sessionId}`,
+       `${AUTH_CONSTANTS.REFRESH_SESSION_PREFIX}:${sessionId}`,
        user.id,
-         60 * 60 * 24 * 7,
+         AUTH_CONSTANTS.REFRESH_SESSION_TTL,
          );
 
         return { message: 'Login successful',
@@ -132,7 +134,7 @@ export class AuthService {
             {
                 sub:userId,
                 role:role,
-                type:'access'
+                type:AUTH_CONSTANTS.ACCESS_TOKEN_TYPE
             },
             {
                 secret:this.configService.getOrThrow<string>('jwt.secret'),
@@ -147,7 +149,7 @@ export class AuthService {
             {
                 sub:userId,
                 sid:sessionId,
-                type:'refresh'
+                type:AUTH_CONSTANTS.REFRESH_TOKEN_TYPE
             },
             {
                 secret:this.configService.getOrThrow<string>('jwt.refreshSecret'),
@@ -161,7 +163,7 @@ export class AuthService {
         const userId = payload.sub;
         const sessionId = payload.sid;
 
-        const key= `auth:refresh:${sessionId}`;
+        const key= `${AUTH_CONSTANTS.REFRESH_SESSION_PREFIX}:${sessionId}`;
         const storedUserId =await this.redisService.get(key);
 
        if (!storedUserId) {
@@ -185,7 +187,7 @@ export class AuthService {
   }
 
   if(user.status !== 'ACTIVE' || !user.emailVerified){
-    throw new ForbiddenException('Your account is not active or email is not verified.');
+    throw new ForbiddenException(AUTH_MESSAGES.ACCOUNT_NOT_ALLOWED);
   }
 
   const newSessionId = uuidv4();
@@ -193,9 +195,9 @@ export class AuthService {
   const refreshToken = await this.generateRefreshToken(user.id, newSessionId);
 
   await this.redisService.set(
-    `auth:refresh:${newSessionId}`,
+    `${AUTH_CONSTANTS.REFRESH_SESSION_PREFIX}:${sessionId}`,
     user.id,
-    60 * 60 * 24 * 7 // Store the new refresh token in Redis with a TTL of 7 days
+    AUTH_CONSTANTS.REFRESH_SESSION_TTL// Store the new refresh token in Redis with a TTL of 7 days
   );
 
   return {
@@ -204,12 +206,12 @@ export class AuthService {
   };
 }
     async logout(payload:RefreshTokenPayload){
-        const key = `auth:refresh:${payload.sid}`;
+        const key = `${AUTH_CONSTANTS.REFRESH_SESSION_PREFIX}:${payload.sid}`;
 
         await this.redisService.delete(key);
 
         return{
-            Message:'Logged out successfully',
+            Message:AUTH_MESSAGES.LOGOUT_SUCCESS,
         }
     }
 }

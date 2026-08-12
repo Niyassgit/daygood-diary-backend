@@ -20,6 +20,9 @@ export const AUTH_MESSAGES = {
   INVALID_REFRESH_TOKEN:
     'Invalid refresh session',
 
+  INVALID_ACCESS_TOKEN: 
+  'Invalid access token',
+
   ACCOUNT_NOT_ALLOWED:
     'Your account is not active or email is not verified.',
 

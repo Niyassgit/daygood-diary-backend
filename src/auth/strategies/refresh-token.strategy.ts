@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config/dist/config.service";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { RefreshTokenPayload } from "../types/refresh-token-payload";
+import { AUTH_MESSAGES } from "src/common/constants/auth.messages";
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(
@@ -21,7 +22,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
             payload: RefreshTokenPayload
         ) {
             if(payload.type !== 'refresh'){
-                throw new UnauthorizedException('Invalid refresh token');
+                throw new UnauthorizedException(AUTH_MESSAGES.INVALID_REFRESH_TOKEN);
             }
             return payload;
         }

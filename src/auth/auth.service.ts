@@ -203,4 +203,13 @@ export class AuthService {
     refreshToken,
   };
 }
+    async logout(payload:RefreshTokenPayload){
+        const key = `auth:refresh:${payload.sid}`;
+
+        await this.redisService.delete(key);
+
+        return{
+            Message:'Logged out successfully',
+        }
+    }
 }

@@ -38,5 +38,10 @@ export class AuthController {
     refreshToken(@Req() req: AuthenticatedRequest) {
         return this.authService.refresh(req.user);
     }
-
+  
+    @UseGuards(RefreshTokenGuard)
+    @Post('logout')
+    logout(@Req() req: AuthenticatedRequest) {
+        return this.authService.logout(req.user);
+    }
 }

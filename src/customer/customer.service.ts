@@ -3,6 +3,7 @@ import { CUSTOMER_MESSAGES } from 'src/common/constants/customer.messages';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
+import { StringSchema } from 'joi';
 
 @Injectable()
 export class CustomerService {
@@ -186,5 +187,24 @@ export class CustomerService {
                 {createdAt :'desc'},
             ]
         });
+    }
+
+
+    async getAddress(
+        userId:string,
+        addressId:string,
+    ){
+        const address = await this.prisma.address.findFirst({
+            where:{
+                id:addressId,
+                 userId
+            }
+        });
+
+        if(!address){
+            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+        }
+        return address;
+
     }
 }

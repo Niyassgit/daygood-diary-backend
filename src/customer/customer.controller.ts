@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import type { AuthenticatedRequest } from 'src/auth/types/authenticated-request';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -50,5 +50,16 @@ export class CustomerController {
         return this.customerService.getAddresses(
             req.user.userId,
         );
+    }
+
+    @Get('addresses/:id')
+    async getAddress(
+        @Req() req:AuthenticatedRequest,
+        @Param('id') addressId:string
+    ){
+        return this.customerService.getAddress(
+            req.user.userId,
+            addressId
+        )
     }
 }

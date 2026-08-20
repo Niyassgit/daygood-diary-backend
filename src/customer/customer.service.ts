@@ -4,6 +4,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { StringSchema } from 'joi';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { dot } from 'node:test/reporters';
 
 @Injectable()
 export class CustomerService {
@@ -206,5 +208,126 @@ export class CustomerService {
         }
         return address;
 
+    }
+
+    async updateAddress(
+        userId:string,
+        addressId:string,
+        dto:UpdateAddressDto
+    ){
+        const address = await this.prisma.address.findFirst({
+            where:{
+                id:addressId,
+                userId
+            }
+        });
+
+        if(!address){
+            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+
+        }
+
+        if(dto.isDefault === false && address.isDefault === true){
+            throw new BadRequestException(CUSTOMER_MESSAGES.CUSTOMER_MUST_HAVE_DEFAULT_ADDRES);
+        };
+
+        if(dto.isDefault ===true){
+            return this.prisma.$transaction(async (tx)=>{
+                await tx.address.updateMany({
+                    where:{
+                        userId,
+                        isDefault:true,
+                        id:{
+                            not:addressId,
+                        },
+                    },
+
+                    data:{
+                        isDefault:false,
+                    }
+                });
+
+                return tx.address.update({
+                    where:{
+                        id:addressId,
+                    },
+
+                            data: {
+          ...(dto.label !== undefined && {
+            label: dto.label,
+          }),
+
+          ...(dto.line1 !== undefined && {
+            line1: dto.line1,
+          }),
+
+          ...(dto.line2 !== undefined && {
+            line2: dto.line2,
+          }),
+
+          ...(dto.city !== undefined && {
+            city: dto.city,
+          }),
+
+          ...(dto.state !== undefined && {
+            state: dto.state,
+          }),
+
+          ...(dto.pincode !== undefined && {
+            pincode: dto.pincode,
+          }),
+
+          ...(dto.latitude !== undefined && {
+            latitude: dto.latitude,
+          }),
+
+          ...(dto.longitude !== undefined && {
+            longitude: dto.longitude,
+          }),
+
+          isDefault: true,
+        },
+                })
+            });
+        }
+
+        return this.prisma.address.update({
+    where: {
+      id: addressId,
+    },
+    data: {
+      ...(dto.label !== undefined && {
+        label: dto.label,
+      }),
+
+      ...(dto.line1 !== undefined && {
+        line1: dto.line1,
+      }),
+
+      ...(dto.line2 !== undefined && {
+        line2: dto.line2,
+      }),
+
+      ...(dto.city !== undefined && {
+        city: dto.city,
+      }),
+
+      ...(dto.state !== undefined && {
+        state: dto.state,
+      }),
+
+      ...(dto.pincode !== undefined && {
+        pincode: dto.pincode,
+      }),
+
+      ...(dto.latitude !== undefined && {
+        latitude: dto.latitude,
+      }),
+
+      ...(dto.longitude !== undefined && {
+        longitude: dto.longitude,
+      }),
+    },
+  });
     }
 }

@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from 'src/auth/types/authenticated-request'
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Controller('customer')
 @UseGuards(AccessTokenGuard)
@@ -61,5 +62,18 @@ export class CustomerController {
             req.user.userId,
             addressId
         )
+    }
+
+    @Patch('addresses/:id')
+    async updateAddress(
+        @Req() req:AuthenticatedRequest,
+        @Param('id') addressId:string,
+        @Body() dto:UpdateAddressDto,
+    ){
+        return this.customerService.updateAddress(
+            req.user.userId,
+            addressId,
+            dto
+        );
     }
 }

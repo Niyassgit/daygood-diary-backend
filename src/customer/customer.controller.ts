@@ -42,4 +42,13 @@ export class CustomerController {
             dto
         )
     }
+
+    @Get('addresses')
+    async getAddresses(
+        @Req() req:AuthenticatedRequest,
+    ){
+        return this.customerService.getAddresses(
+            req.user.userId,
+        );
+    }
 }

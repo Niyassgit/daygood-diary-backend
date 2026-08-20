@@ -159,4 +159,32 @@ export class CustomerService {
         })
         
     }
+
+
+    async getAddresses(userId:string){
+        const customer = await this.prisma.user.findUnique({
+            where:{
+                id:userId,
+            },
+            select:{
+                id:true,
+                role:true
+            },
+        });
+
+        if(!customer){
+            throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+        }
+
+        return this.prisma.address.findMany({
+            where:{
+                userId,
+            },
+            orderBy:[
+                {isDefault:'desc',
+                },
+                {createdAt :'desc'},
+            ]
+        });
+    }
 }

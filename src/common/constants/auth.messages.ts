@@ -40,5 +40,7 @@ export const AUTH_MESSAGES = {
   USER_NOT_AUTHENTICATED:'User not authenticated',
 
   PERMISSION_DENIED:
-  'You do not have permission to access this resource'
+  'You do not have permission to access this resource',
+  
+   PHONE_ALREADY_EXISTS: 'Phone number already exists',
 } as const;

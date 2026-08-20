@@ -31,6 +31,17 @@ export class AuthService {
             throw new ConflictException(AUTH_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
+     const existingPhone = dto.phone
+  ? await this.usersService.findByPhone(dto.phone)
+  : null;
+
+
+        if (existingPhone) {
+    throw new ConflictException(
+      AUTH_MESSAGES.PHONE_ALREADY_EXISTS,
+    );
+  } 
+
         const hashedPassword = await argon2.hash(dto.password);
          const user =await this.usersService.create({
             name: dto.name,

@@ -62,4 +62,12 @@ export class UsersService {
             }
         });
     }
+
+    async findByPhone(phone: string) {
+  return this.prisma.user.findUnique({
+    where: {
+      phone,
+    },
+  });
+}
 }

@@ -1,19 +1,23 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
-import { Language } from "@prisma/client";
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { Language } from '@prisma/client';
 
+export class UpdateCustomerDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  name?: string;
 
-export class UpdateCustomerDto{
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    name?:string;
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
-    @IsOptional()
-    @IsEmail()
-    email?: string;
-
-    @IsOptional()
-    @IsEnum(Language)
-    language?: Language;
-
+  @IsOptional()
+  @IsEnum(Language)
+  language?: Language;
 }

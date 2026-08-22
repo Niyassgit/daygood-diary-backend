@@ -9,17 +9,13 @@ import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { RolesGuard } from './guards/roles.guard';
 
 @Module({
-  imports: [
-    UsersModule,
-    JwtModule.register({}),
-    MailModule
-  ],
+  imports: [UsersModule, JwtModule.register({}), MailModule],
   providers: [
     AuthService,
     AccessTokenStrategy,
     RefreshTokenStrategy,
-    RolesGuard
+    RolesGuard,
   ],
-  controllers: [AuthController]
+  controllers: [AuthController],
 })
 export class AuthModule {}

@@ -1,6 +1,5 @@
-import { AccessTokenPayload } from "./access-token-payload";
+import { AccessTokenPayload } from './access-token-payload';
 
-export interface AuthenticatedRequest
-extends Request {
-    user:AccessTokenPayload
+export interface AuthenticatedRequest extends Request {
+  user: AccessTokenPayload;
 }

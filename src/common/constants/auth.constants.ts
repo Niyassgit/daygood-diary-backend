@@ -1,4 +1,4 @@
- export const AUTH_CONSTANTS = {
+export const AUTH_CONSTANTS = {
   ACCESS_TOKEN_TYPE: 'access',
   REFRESH_TOKEN_TYPE: 'refresh',
 
@@ -8,5 +8,5 @@
   EMAIL_VERIFICATION_TTL: 60 * 60 * 24,
   REFRESH_SESSION_TTL: 60 * 60 * 24 * 7,
 
-  REDIS_STORE_TTL:  60 * 60 * 24
+  REDIS_STORE_TTL: 60 * 60 * 24,
 } as const;

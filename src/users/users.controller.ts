@@ -8,25 +8,20 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @Controller('users')
 export class UsersController {
+  constructor(private readonly userService: UsersService) {}
 
-    constructor(
-        private readonly userService:UsersService
-    ){}
+  @Get('me')
+  @UseGuards(AccessTokenGuard)
+  getMe(@Req() req: AuthenticatedRequest) {
+    return this.userService.findById(req.user.userId);
+  }
 
-    @Get('me')
-    @UseGuards(AccessTokenGuard)
-    getMe(@Req() req:AuthenticatedRequest){
-        return this.userService.findById(
-            req.user.userId
-        )
-    }
-
-    @Get('admin-test')
-    @UseGuards(AccessTokenGuard,RolesGuard)
-    @Roles(UserRole.ADMIN,UserRole.SUPER_ADMIN)
-    adminTest(){
-        return{
-       message: 'You have admin access',
-        }
-    }
+  @Get('admin-test')
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  adminTest() {
+    return {
+      message: 'You have admin access',
+    };
+  }
 }

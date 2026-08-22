@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CUSTOMER_MESSAGES } from 'src/common/constants/customer.messages';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -9,17 +13,14 @@ import { dot } from 'node:test/reporters';
 
 @Injectable()
 export class CustomerService {
+  constructor(private readonly prisma: PrismaService) {}
 
-    constructor(
-        private readonly prisma :PrismaService
-    ){}
-
-    async getMyProfile(userId:string){
-        const customer =await this.prisma.user.findUnique({
-            where:{
-                id:userId
-            },
-            select:{
+  async getMyProfile(userId: string) {
+    const customer = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
         id: true,
         name: true,
         phone: true,
@@ -30,29 +31,26 @@ export class CustomerService {
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
-            }
-        });
+      },
+    });
 
-        if(!customer){
-            throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
-        }
-        return customer;
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
     }
+    return customer;
+  }
 
-    async updateMyProfile(
-        userId:string,
-        dto:UpdateCustomerDto
-    ){
-        const customer =await this.prisma.user.findUnique({
-            where:{
-                id:userId
-            },
-        });
+  async updateMyProfile(userId: string, dto: UpdateCustomerDto) {
+    const customer = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
 
-        if(!customer){
-            throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
-        }
-         return this.prisma.user.update({
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+    }
+    return this.prisma.user.update({
       where: {
         id: userId,
       },
@@ -82,73 +80,67 @@ export class CustomerService {
         updatedAt: true,
       },
     });
+  }
+
+  async createAddress(userId: string, dto: CreateAddressDto) {
+    const customer = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        role: true,
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
     }
 
-    async createAddress(
-        userId:string,
-        dto:CreateAddressDto,
-    ){
-        const customer =await this.prisma.user.findUnique({
-            where:{
-                id:userId,
-            },
-            select:{
-                id:true,
-                role:true,
-            },
+    if (customer.role !== 'CUSTOMER') {
+      throw new BadRequestException(CUSTOMER_MESSAGES.ADDRESS_CREATE_REJECT);
+    }
+
+    const addressCount = await this.prisma.address.count({
+      where: {
+        userId,
+      },
+    });
+
+    const shouldBeDefault = dto.isDefault === true || addressCount === 0;
+
+    if (shouldBeDefault) {
+      return this.prisma.$transaction(async (tx) => {
+        await tx.address.updateMany({
+          where: {
+            userId,
+            isDefault: true,
+          },
+          data: {
+            isDefault: false,
+          },
         });
 
-        if(!customer){
-            throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
-
-        }
-
-        if(customer.role !=='CUSTOMER'){
-            throw new BadRequestException(CUSTOMER_MESSAGES.ADDRESS_CREATE_REJECT);
-
-        }
-
-        const addressCount =await this.prisma.address.count({
-            where:{
-                userId
-            },
+        return tx.address.create({
+          data: {
+            userId,
+            label: dto.label,
+            line1: dto.line1,
+            line2: dto.line2,
+            city: dto.city,
+            state: dto.state,
+            pincode: dto.pincode,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            isDefault: true,
+          },
         });
+      });
+    }
 
-        const shouldBeDefault =dto.isDefault === true || addressCount === 0;
-
-        if(shouldBeDefault){
-            return this.prisma.$transaction(async(tx)=>{
-                await tx.address.updateMany({
-                    where:{
-                        userId,
-                        isDefault:true,
-                    },
-                    data:{
-                        isDefault:false,
-                    },
-                });
-
-                return tx.address.create ({
-                    data:{
-                        userId,
-                        label: dto.label,
-                        line1: dto.line1,
-                        line2: dto.line2,
-                        city: dto.city,
-                        state: dto.state,
-                        pincode: dto.pincode,
-                        latitude: dto.latitude,
-                        longitude: dto.longitude,
-                        isDefault: true,
-                    }
-                })
-            })
-        }
-
-
-        return this.prisma.address.create({
-            data:{
-               userId,
+    return this.prisma.address.create({
+      data: {
+        userId,
         label: dto.label,
         line1: dto.line1,
         line2: dto.line2,
@@ -157,243 +149,245 @@ export class CustomerService {
         pincode: dto.pincode,
         latitude: dto.latitude,
         longitude: dto.longitude,
-        isDefault: false, 
-            }
-        })
-        
+        isDefault: false,
+      },
+    });
+  }
+
+  async getAddresses(userId: string) {
+    const customer = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        role: true,
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
     }
 
+    return this.prisma.address.findMany({
+      where: {
+        userId,
+      },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
 
-    async getAddresses(userId:string){
-        const customer = await this.prisma.user.findUnique({
-            where:{
-                id:userId,
-            },
-            select:{
-                id:true,
-                role:true
-            },
-        });
+  async getAddress(userId: string, addressId: string) {
+    const address = await this.prisma.address.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
 
-        if(!customer){
-            throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
-        }
+    if (!address) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+    }
+    return address;
+  }
 
-        return this.prisma.address.findMany({
-            where:{
-                userId,
-            },
-            orderBy:[
-                {isDefault:'desc',
-                },
-                {createdAt :'desc'},
-            ]
-        });
+  async updateAddress(
+    userId: string,
+    addressId: string,
+    dto: UpdateAddressDto,
+  ) {
+    const address = await this.prisma.address.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
     }
 
-
-    async getAddress(
-        userId:string,
-        addressId:string,
-    ){
-        const address = await this.prisma.address.findFirst({
-            where:{
-                id:addressId,
-                 userId
-            }
-        });
-
-        if(!address){
-            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
-        }
-        return address;
-
+    if (dto.isDefault === false && address.isDefault === true) {
+      throw new BadRequestException(
+        CUSTOMER_MESSAGES.CUSTOMER_MUST_HAVE_DEFAULT_ADDRES,
+      );
     }
 
-    async updateAddress(
-        userId:string,
-        addressId:string,
-        dto:UpdateAddressDto
-    ){
-        const address = await this.prisma.address.findFirst({
-            where:{
-                id:addressId,
-                userId
-            }
+    if (dto.isDefault === true) {
+      return this.prisma.$transaction(async (tx) => {
+        await tx.address.updateMany({
+          where: {
+            userId,
+            isDefault: true,
+            id: {
+              not: addressId,
+            },
+          },
+
+          data: {
+            isDefault: false,
+          },
         });
 
-        if(!address){
-            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+        return tx.address.update({
+          where: {
+            id: addressId,
+          },
 
-        }
+          data: {
+            ...(dto.label !== undefined && {
+              label: dto.label,
+            }),
 
-        if(dto.isDefault === false && address.isDefault === true){
-            throw new BadRequestException(CUSTOMER_MESSAGES.CUSTOMER_MUST_HAVE_DEFAULT_ADDRES);
+            ...(dto.line1 !== undefined && {
+              line1: dto.line1,
+            }),
+
+            ...(dto.line2 !== undefined && {
+              line2: dto.line2,
+            }),
+
+            ...(dto.city !== undefined && {
+              city: dto.city,
+            }),
+
+            ...(dto.state !== undefined && {
+              state: dto.state,
+            }),
+
+            ...(dto.pincode !== undefined && {
+              pincode: dto.pincode,
+            }),
+
+            ...(dto.latitude !== undefined && {
+              latitude: dto.latitude,
+            }),
+
+            ...(dto.longitude !== undefined && {
+              longitude: dto.longitude,
+            }),
+
+            isDefault: true,
+          },
+        });
+      });
+    }
+
+    return this.prisma.address.update({
+      where: {
+        id: addressId,
+      },
+      data: {
+        ...(dto.label !== undefined && {
+          label: dto.label,
+        }),
+
+        ...(dto.line1 !== undefined && {
+          line1: dto.line1,
+        }),
+
+        ...(dto.line2 !== undefined && {
+          line2: dto.line2,
+        }),
+
+        ...(dto.city !== undefined && {
+          city: dto.city,
+        }),
+
+        ...(dto.state !== undefined && {
+          state: dto.state,
+        }),
+
+        ...(dto.pincode !== undefined && {
+          pincode: dto.pincode,
+        }),
+
+        ...(dto.latitude !== undefined && {
+          latitude: dto.latitude,
+        }),
+
+        ...(dto.longitude !== undefined && {
+          longitude: dto.longitude,
+        }),
+      },
+    });
+  }
+
+  async deleteteAddress(userId: string, addressId: string) {
+    const address = await this.prisma.address.findFirst({
+      where: {
+        id: addressId,
+        userId,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.address.delete({
+        where: {
+          id: addressId,
+        },
+      });
+
+      if (!address.isDefault) {
+        return {
+          message: CUSTOMER_MESSAGES.ADDRESS_DELETED,
         };
+      }
 
-        if(dto.isDefault ===true){
-            return this.prisma.$transaction(async (tx)=>{
-                await tx.address.updateMany({
-                    where:{
-                        userId,
-                        isDefault:true,
-                        id:{
-                            not:addressId,
-                        },
-                    },
+      const nextAddress = await tx.address.findFirst({
+        where: {
+          userId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
 
-                    data:{
-                        isDefault:false,
-                    }
-                });
+      if (!nextAddress) {
+        return {
+          message: CUSTOMER_MESSAGES.ADDRESS_DELETED,
+        };
+      }
 
-                return tx.address.update({
-                    where:{
-                        id:addressId,
-                    },
-
-                            data: {
-          ...(dto.label !== undefined && {
-            label: dto.label,
-          }),
-
-          ...(dto.line1 !== undefined && {
-            line1: dto.line1,
-          }),
-
-          ...(dto.line2 !== undefined && {
-            line2: dto.line2,
-          }),
-
-          ...(dto.city !== undefined && {
-            city: dto.city,
-          }),
-
-          ...(dto.state !== undefined && {
-            state: dto.state,
-          }),
-
-          ...(dto.pincode !== undefined && {
-            pincode: dto.pincode,
-          }),
-
-          ...(dto.latitude !== undefined && {
-            latitude: dto.latitude,
-          }),
-
-          ...(dto.longitude !== undefined && {
-            longitude: dto.longitude,
-          }),
-
+      await tx.address.update({
+        where: {
+          id: nextAddress.id,
+        },
+        data: {
           isDefault: true,
         },
-                })
-            });
-        }
+      });
 
-        return this.prisma.address.update({
-    where: {
-      id: addressId,
-    },
-    data: {
-      ...(dto.label !== undefined && {
-        label: dto.label,
-      }),
+      return {
+        message: CUSTOMER_MESSAGES.ADDRESS_DELETED,
+      };
+    });
+  }
 
-      ...(dto.line1 !== undefined && {
-        line1: dto.line1,
-      }),
-
-      ...(dto.line2 !== undefined && {
-        line2: dto.line2,
-      }),
-
-      ...(dto.city !== undefined && {
-        city: dto.city,
-      }),
-
-      ...(dto.state !== undefined && {
-        state: dto.state,
-      }),
-
-      ...(dto.pincode !== undefined && {
-        pincode: dto.pincode,
-      }),
-
-      ...(dto.latitude !== undefined && {
-        latitude: dto.latitude,
-      }),
-
-      ...(dto.longitude !== undefined && {
-        longitude: dto.longitude,
-      }),
-    },
-  });
-
-    }
-
-    async deleteteAddress(
-        userId:string,
-        addressId:string
-    ){
-        const address =await this.prisma.address.findFirst(
-            {
-                where:{
-                    id:addressId,
-                    userId
-                }
-            }
-        );
-
-        if(!address){
-            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
-        }
-
-        return this.prisma.$transaction(
-            async (tx)=>{
-                await tx.address.delete({
-                    where:{
-                        id:addressId
-                    }
-                });
-
-                if(!address.isDefault){
-                    return {
-                        message:CUSTOMER_MESSAGES.ADDRESS_DELETED
-                    };
-                }
-
-                const nextAddress = await tx.address.findFirst({
-                    where:{
-                       userId,
-                    },
-                    orderBy:{
-                        createdAt:'desc'
-                    },
-                });
-
-                if(!nextAddress){
-                    return {
-                        message:CUSTOMER_MESSAGES.ADDRESS_DELETED
-                    };
-                }
-
-                await tx.address.update({
-                    where:{
-                        id:nextAddress.id
-                    },
-                    data:{
-                        isDefault:true,
-                    },
-                });
-
-
-                return {
-                    message:CUSTOMER_MESSAGES.ADDRESS_DELETED
-                }
-            }
-
-        );
-    }
-
+  async getCutomers() {
+    return this.prisma.user.findMany({
+      where: {
+        role: 'CUSTOMER',
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        language: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
 }

@@ -1,4 +1,4 @@
-export interface AccessTokenPayload{
-    userId:string;
-    role:string
+export interface AccessTokenPayload {
+  userId: string;
+  role: string;
 }

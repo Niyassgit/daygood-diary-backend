@@ -1,11 +1,19 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AccessTokenGuard } from 'src/auth/guards/access-token.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { CustomerService } from './customer.service';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { AdminUpdateCustomerDto } from './dto/adimn-update-customer.dto';
-import { UsersService } from 'src/users/users.service';
+import { CustomerQueryDto } from './dto/customer-query.dto';
 
 @Controller('customers')
 @UseGuards(AccessTokenGuard, RolesGuard)
@@ -14,8 +22,8 @@ export class AdminCustomerController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  async getCustomers() {
-    return this.customerService.getCutomers();
+  async getCustomers(@Query() query: CustomerQueryDto) {
+    return this.customerService.getCutomers(query);
   }
 
   @Get(':id')

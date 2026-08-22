@@ -11,6 +11,8 @@ import { StringSchema, when } from 'joi';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { dot } from 'node:test/reporters';
 import { AdminUpdateCustomerDto } from './dto/adimn-update-customer.dto';
+import { CustomerQueryDto } from './dto/customer-query.dto';
+import { stat } from 'fs';
 
 @Injectable()
 export class CustomerService {
@@ -369,27 +371,75 @@ export class CustomerService {
     });
   }
 
-  async getCutomers() {
-    return this.prisma.user.findMany({
-      where: {
-        role: 'CUSTOMER',
+  async getCutomers(query: CustomerQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      role: 'CUSTOMER' as const,
+
+      ...(query.status && {
+        status: query.status,
+      }),
+      ...(query.search && {
+        OR: [
+          {
+            name: {
+              contains: query.search,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            email: {
+              contains: query.search,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            phone: {
+              contains: query.search,
+            },
+          },
+        ],
+      }),
+    };
+
+    const [customers, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          role: true,
+          status: true,
+          language: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.user.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: customers,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        role: true,
-        status: true,
-        language: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    };
   }
 
   async getCustomerById(customerId: string) {
@@ -482,73 +532,71 @@ export class CustomerService {
     });
   }
 
-  async blockCustomer(
-    customerId:string
-  ){
-    const customer =await this.prisma.user.findFirst({
-        where:{
-            id:customerId,
-            role:'CUSTOMER'
-        },
-    }) ;
+  async blockCustomer(customerId: string) {
+    const customer = await this.prisma.user.findFirst({
+      where: {
+        id: customerId,
+        role: 'CUSTOMER',
+      },
+    });
 
-    if(!customer){
-        throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
     }
 
     return this.prisma.user.update({
-        where:{
-            id:customerId,
-        },
-        data:{
-            status:'BLOCKED'
-        },
-        select:{
-             id: true,
-      name: true,
-      phone: true,
-      email: true,
-      role: true,
-      status: true,
-      language: true,
-      emailVerified: true,
-      createdAt: true,
-      updatedAt: true,
-        }
-    })
+      where: {
+        id: customerId,
+      },
+      data: {
+        status: 'BLOCKED',
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        language: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async unblockCustomer(customerId: string) {
-  const customer = await this.prisma.user.findFirst({
-    where: {
-      id: customerId,
-      role: 'CUSTOMER',
-    },
-  });
+    const customer = await this.prisma.user.findFirst({
+      where: {
+        id: customerId,
+        role: 'CUSTOMER',
+      },
+    });
 
-  if (!customer) {
-    throw new NotFoundException('Customer not found');
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return this.prisma.user.update({
+      where: {
+        id: customerId,
+      },
+      data: {
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        language: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
-
-  return this.prisma.user.update({
-    where: {
-      id: customerId,
-    },
-    data: {
-      status: 'ACTIVE',
-    },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      email: true,
-      role: true,
-      status: true,
-      language: true,
-      emailVerified: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-}
 }

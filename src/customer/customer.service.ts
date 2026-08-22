@@ -329,5 +329,71 @@ export class CustomerService {
       }),
     },
   });
+
     }
+
+    async deleteteAddress(
+        userId:string,
+        addressId:string
+    ){
+        const address =await this.prisma.address.findFirst(
+            {
+                where:{
+                    id:addressId,
+                    userId
+                }
+            }
+        );
+
+        if(!address){
+            throw new NotFoundException(CUSTOMER_MESSAGES.ADDRESS_NOT_FOUND);
+        }
+
+        return this.prisma.$transaction(
+            async (tx)=>{
+                await tx.address.delete({
+                    where:{
+                        id:addressId
+                    }
+                });
+
+                if(!address.isDefault){
+                    return {
+                        message:CUSTOMER_MESSAGES.ADDRESS_DELETED
+                    };
+                }
+
+                const nextAddress = await tx.address.findFirst({
+                    where:{
+                       userId,
+                    },
+                    orderBy:{
+                        createdAt:'desc'
+                    },
+                });
+
+                if(!nextAddress){
+                    return {
+                        message:CUSTOMER_MESSAGES.ADDRESS_DELETED
+                    };
+                }
+
+                await tx.address.update({
+                    where:{
+                        id:nextAddress.id
+                    },
+                    data:{
+                        isDefault:true,
+                    },
+                });
+
+
+                return {
+                    message:CUSTOMER_MESSAGES.ADDRESS_DELETED
+                }
+            }
+
+        );
+    }
+
 }

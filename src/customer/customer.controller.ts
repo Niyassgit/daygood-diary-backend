@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { CustomerService } from './customer.service';
 import type { AuthenticatedRequest } from 'src/auth/types/authenticated-request';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -74,6 +74,17 @@ export class CustomerController {
             req.user.userId,
             addressId,
             dto
+        );
+    }
+
+    @Delete('addresses/:id')
+    async deleteAddress(
+        @Req() req:AuthenticatedRequest,
+        @Param('id') addressId:string,
+    ){
+        return this.customerService.deleteteAddress(
+            req.user.userId,
+            addressId
         );
     }
 }

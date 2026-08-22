@@ -7,9 +7,10 @@ import { CUSTOMER_MESSAGES } from 'src/common/constants/customer.messages';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { StringSchema } from 'joi';
+import { StringSchema, when } from 'joi';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { dot } from 'node:test/reporters';
+import { AdminUpdateCustomerDto } from './dto/adimn-update-customer.dto';
 
 @Injectable()
 export class CustomerService {
@@ -390,4 +391,164 @@ export class CustomerService {
       },
     });
   }
+
+  async getCustomerById(customerId: string) {
+    const customer = await this.prisma.user.findFirst({
+      where: {
+        id: customerId,
+        role: 'CUSTOMER',
+      },
+
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        language: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+
+        address: {
+          orderBy: [
+            {
+              isDefault: 'desc',
+            },
+            {
+              createdAt: 'desc',
+            },
+          ],
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+    }
+    return customer;
+  }
+
+  async updateCustomer(customerId: string, dto: AdminUpdateCustomerDto) {
+    const customer = await this.prisma.user.findFirst({
+      where: {
+        id: customerId,
+        role: 'CUSTOMER',
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+    }
+
+    return this.prisma.user.update({
+      where: {
+        id: customerId,
+      },
+
+      data: {
+        ...(dto.name !== undefined && {
+          name: dto.name,
+        }),
+        ...(dto.email !== undefined && {
+          email: dto.email,
+        }),
+
+        ...(dto.phone !== undefined && {
+          phone: dto.phone,
+        }),
+
+        ...(dto.language !== undefined && {
+          language: dto.language,
+        }),
+
+        ...(dto.status !== undefined && {
+          status: dto.status,
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        status: true,
+        language: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async blockCustomer(
+    customerId:string
+  ){
+    const customer =await this.prisma.user.findFirst({
+        where:{
+            id:customerId,
+            role:'CUSTOMER'
+        },
+    }) ;
+
+    if(!customer){
+        throw new NotFoundException(CUSTOMER_MESSAGES.CUSTOMER_NOT_FOUND);
+    }
+
+    return this.prisma.user.update({
+        where:{
+            id:customerId,
+        },
+        data:{
+            status:'BLOCKED'
+        },
+        select:{
+             id: true,
+      name: true,
+      phone: true,
+      email: true,
+      role: true,
+      status: true,
+      language: true,
+      emailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+        }
+    })
+  }
+
+  async unblockCustomer(customerId: string) {
+  const customer = await this.prisma.user.findFirst({
+    where: {
+      id: customerId,
+      role: 'CUSTOMER',
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException('Customer not found');
+  }
+
+  return this.prisma.user.update({
+    where: {
+      id: customerId,
+    },
+    data: {
+      status: 'ACTIVE',
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      role: true,
+      status: true,
+      language: true,
+      emailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+}
 }

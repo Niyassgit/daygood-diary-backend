@@ -34,4 +34,6 @@ export const AUTH_MESSAGES = {
   PERMISSION_DENIED: 'You do not have permission to access this resource',
 
   PHONE_ALREADY_EXISTS: 'Phone number already exists',
+
+  USER_BLOCKED:'Your account has been blocked'
 } as const;

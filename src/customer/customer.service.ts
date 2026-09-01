@@ -7,12 +7,9 @@ import { CUSTOMER_MESSAGES } from 'src/common/constants/customer.messages';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { StringSchema, when } from 'joi';
 import { UpdateAddressDto } from './dto/update-address.dto';
-import { dot } from 'node:test/reporters';
 import { AdminUpdateCustomerDto } from './dto/adimn-update-customer.dto';
 import { CustomerQueryDto } from './dto/customer-query.dto';
-import { stat } from 'fs';
 
 @Injectable()
 export class CustomerService {

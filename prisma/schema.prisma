@@ -94,6 +94,22 @@ model Product {
   status       ProductStatus       @default(ACTIVE)
   availability ProductAvailability @default(AVAILABLE)
 
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  imageUrl    String?
+  status      ProductStatus @default(ACTIVE)
+
+  products Product[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

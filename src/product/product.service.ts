@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PRODUCT_MESSAGES } from 'src/common/constants/Product.messages';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductService {
@@ -40,4 +41,48 @@ export class ProductService {
         }
         return product;
     }
+
+    async update(id:string,dto:UpdateProductDto){
+        const product = await this.prisma.product.findUnique({
+            where:{
+                id
+            }
+        });
+
+        if(!product){
+            throw new Error(PRODUCT_MESSAGES.PRODUCT_NOT_FOUND);
+        }
+
+        return this.prisma.product.update({
+            where:{
+                id
+            },
+            data:{
+                name:dto.name,
+                description:dto.description,
+                imageUrl:dto.imageUrl,
+                status:dto.status,
+                availability:dto.availability
+            }
+        });
+    }
+
+    async delete(id:string){
+        const product = await this.prisma.product.findUnique({
+            where:{
+                id
+            }
+        });
+
+        if(!product){
+            throw new Error(PRODUCT_MESSAGES.PRODUCT_NOT_FOUND);
+        }
+
+        return this.prisma.product.delete({
+            where:{
+                id
+            }
+        });
+    }
+
 }

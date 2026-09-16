@@ -9,4 +9,3 @@ import { AdminCustomerController } from './adim-customer-controller';
   providers: [CustomerService, PrismaService],
 })
 export class CustomerModule {}
- 

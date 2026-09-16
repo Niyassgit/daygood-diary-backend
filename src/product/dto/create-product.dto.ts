@@ -6,10 +6,8 @@ import {
   IsUrl,
   MaxLength,
 } from 'class-validator';
-import {
-  ProductAvailability,
-  ProductStatus,
-} from '@prisma/client';
+
+import { ProductAvailability, ProductStatus } from '@prisma/client';
 
 export class CreateProductDto {
   @IsString()
@@ -33,4 +31,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(ProductAvailability)
   availability?: ProductAvailability;
+
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
 }

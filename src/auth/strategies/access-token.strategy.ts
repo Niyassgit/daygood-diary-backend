@@ -19,7 +19,7 @@ export class AccessTokenStrategy extends PassportStrategy(
 ) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly userService:UsersService
+    private readonly userService: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -34,17 +34,15 @@ export class AccessTokenStrategy extends PassportStrategy(
     if (payload.type !== AUTH_CONSTANTS.ACCESS_TOKEN_TYPE) {
       throw new UnauthorizedException(AUTH_MESSAGES.INVALID_ACCESS_TOKEN);
     }
-  
-    const user =await this.userService.findById(payload.sub);
 
-    if(!user){
+    const user = await this.userService.findById(payload.sub);
+
+    if (!user) {
       throw new UnauthorizedException(AUTH_MESSAGES.USER_NOT_FOUND);
     }
 
-    if(user.status === 'BLOCKED'){
-      throw new UnauthorizedException(
-        AUTH_MESSAGES.USER_BLOCKED
-      )
+    if (user.status === 'BLOCKED') {
+      throw new UnauthorizedException(AUTH_MESSAGES.USER_BLOCKED);
     }
     return {
       userId: payload.sub,

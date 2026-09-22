@@ -34,6 +34,22 @@ enum ProductAvailability {
   UNAVAILABLE
 }
 
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 model User {
   id String @id @default(cuid())
 
@@ -56,6 +72,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   address Address[]
+
+  subscriptions Subscription[]
 
   @@index([status])
 }
@@ -97,6 +115,8 @@ model Product {
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  subscriptions Subscription[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -112,4 +132,62 @@ model Category {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  status SubscriptionStatus @default(ACTIVE)
+
+  startDate DateTime
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules SubscriptionSchedule[]
+  skipDates SubscriptionSkipDate[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@index([userId, status])
+}
+
+model SubscriptionSchedule {
+  id String @id @default(cuid())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  dayOfWeek DayOfWeek
+  quantity  Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subscriptionId, dayOfWeek])
+  @@index([subscriptionId])
+}
+
+model SubscriptionSkipDate {
+  id String @id @default(cuid())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  date   DateTime
+  reason String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([subscriptionId, date])
+  @@index([subscriptionId])
+  @@index([date])
 }

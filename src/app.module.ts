@@ -10,6 +10,7 @@ import { MailModule } from './mail/mail.module';
 import { CustomerModule } from './customer/customer.module';
 import { ProductModule } from './product/product.module';
 import { CategoryModule } from './category/category.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -35,6 +36,8 @@ import { CategoryModule } from './category/category.module';
     ProductModule,
 
     CategoryModule,
+
+    SubscriptionModule,
   ],
 })
 export class AppModule {}

@@ -4,4 +4,4 @@ export class UpdateSubscriptionDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
-}   
+}

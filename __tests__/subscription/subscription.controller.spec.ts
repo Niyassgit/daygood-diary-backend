@@ -13,6 +13,7 @@ describe('SubscriptionController', () => {
     update: jest.Mock;
     getSchedule: jest.Mock;
     updateSchedule: jest.Mock;
+    pause: jest.Mock;
   };
 
   const mockSubscriptionService = {
@@ -22,6 +23,7 @@ describe('SubscriptionController', () => {
     update: jest.fn(),
     getSchedule: jest.fn(),
     updateSchedule: jest.fn(),
+    pause: jest.fn(),
   };
 
   const mockRequest = {
@@ -127,6 +129,17 @@ describe('SubscriptionController', () => {
         dto,
       );
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('pause', () => {
+    it('should delegate to service.pause with userId and id', async () => {
+      service.pause.mockResolvedValue({ id: 'sub-1', status: 'PAUSED' });
+
+      const result = await controller.pause(mockRequest, 'sub-1');
+
+      expect(service.pause).toHaveBeenCalledWith('user-123', 'sub-1');
+      expect(result).toEqual({ id: 'sub-1', status: 'PAUSED' });
     });
   });
 });

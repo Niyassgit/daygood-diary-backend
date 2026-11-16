@@ -78,4 +78,12 @@ export class SubscriptionController {
       dto,
     );
   }
+
+  @Patch(':id/pause')
+  async pause(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') subscriptionId: string,
+  ) {
+    return this.subscriptionService.pause(req.user.userId, subscriptionId);
+  }
 }

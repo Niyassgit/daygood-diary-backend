@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import SUBSCRIPTION_MESSAGES from 'src/common/constants/subscription.message';
@@ -183,6 +184,51 @@ export class SubscriptionService {
       },
       orderBy: {
         dayOfWeek: 'asc',
+      },
+    });
+  }
+
+  async pause(userId: string, id: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    if (subscription.status === SubscriptionStatus.PAUSED) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.SUBSCRIPTION_ALREADY_PAUSED,
+      );
+    }
+
+    if (subscription.status === SubscriptionStatus.CANCELLED) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.CANNOT_PAUSE_CANCELLED_SUBSCRIPTION,
+      );
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_BE_PAUSED,
+      );
+    }
+
+    return this.prisma.subscription.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SubscriptionStatus.PAUSED,
+      },
+      include: {
+        product: true,
+        schedules: true,
+        skipDates: true,
       },
     });
   }

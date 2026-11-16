@@ -86,4 +86,12 @@ export class SubscriptionController {
   ) {
     return this.subscriptionService.pause(req.user.userId, subscriptionId);
   }
+
+  @Patch(':id/resume')
+  async resume(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') subscriptionId: string,
+  ) {
+    return this.subscriptionService.resume(req.user.userId, subscriptionId);
+  }
 }

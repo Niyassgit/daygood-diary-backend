@@ -232,4 +232,49 @@ export class SubscriptionService {
       },
     });
   }
+
+  async resume(userId: string, id: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.SUBSCRIPTION_ALREADY_ACTIVE,
+      );
+    }
+
+    if (subscription.status === SubscriptionStatus.CANCELLED) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.CANNOT_RESUME_CANCELLED_SUBSCRIPTION,
+      );
+    }
+
+    if (subscription.status !== SubscriptionStatus.PAUSED) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.ONLY_PAUSED_CAN_BE_RESUMED,
+      );
+    }
+
+    return this.prisma.subscription.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SubscriptionStatus.ACTIVE,
+      },
+      include: {
+        product: true,
+        schedules: true,
+        skipDates: true,
+      },
+    });
+  }
 }

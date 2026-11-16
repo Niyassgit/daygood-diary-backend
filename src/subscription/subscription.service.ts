@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import SUBSCRIPTION_MESSAGES from 'src/common/constants/subscription.message';
@@ -17,11 +21,13 @@ export class SubscriptionService {
     });
 
     if (!product) {
-      throw new Error(SUBSCRIPTION_MESSAGES.PRODUCT_NOT_FOUND);
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.PRODUCT_NOT_FOUND);
     }
 
     if (product.status !== 'ACTIVE' || product.availability !== 'AVAILABLE') {
-      throw new Error(SUBSCRIPTION_MESSAGES.PRODUCT_NOT_AVAILABLE);
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.PRODUCT_NOT_AVAILABLE,
+      );
     }
 
     return this.prisma.subscription.create({
@@ -67,7 +73,7 @@ export class SubscriptionService {
       },
     });
     if (!subscription) {
-      throw new Error(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
     }
     return subscription;
   }
@@ -81,7 +87,17 @@ export class SubscriptionService {
     });
 
     if (!subscription) {
-      throw new Error(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    let endDate: Date | undefined;
+    if (dto.endDate) {
+      endDate = new Date(dto.endDate);
+      if (endDate < subscription.startDate) {
+        throw new BadRequestException(
+          SUBSCRIPTION_MESSAGES.END_DATE_BEFORE_START_DATE,
+        );
+      }
     }
 
     return this.prisma.subscription.update({
@@ -89,7 +105,7 @@ export class SubscriptionService {
         id,
       },
       data: {
-        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+        endDate: dto.endDate ? endDate : undefined,
       },
       include: {
         product: true,
@@ -108,7 +124,7 @@ export class SubscriptionService {
     });
 
     if (!subscription) {
-      throw new Error(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
     }
 
     return this.prisma.subscriptionSchedule.findMany({
@@ -134,7 +150,7 @@ export class SubscriptionService {
     });
 
     if (!subscription) {
-      throw new Error(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
     }
 
     const days = dto.schedule.map((item) => item.dayOfWeek);
@@ -142,7 +158,7 @@ export class SubscriptionService {
     const uniqueDays = new Set(days);
 
     if (uniqueDays.size !== days.length) {
-      throw new Error(SUBSCRIPTION_MESSAGES.DUPLICATE_DAYS_FOUND);
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_DAYS_FOUND);
     }
 
     await this.prisma.$transaction([

@@ -1,8 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SubscriptionController } from 'src/subscription/subscription.controller';
 import { SubscriptionService } from 'src/subscription/subscription.service';
 import { DayOfWeek } from '@prisma/client';
 import type { AuthenticatedRequest } from 'src/auth/types/authenticated-request';
+import SUBSCRIPTION_MESSAGES from 'src/common/constants/subscription.message';
+import { AddSkipDateDto } from 'src/subscription/dto/add-skip-date.dto';
 
 describe('SubscriptionController', () => {
   let controller: SubscriptionController;
@@ -16,6 +19,7 @@ describe('SubscriptionController', () => {
     pause: jest.Mock;
     resume: jest.Mock;
     cancel: jest.Mock;
+    addSkipDate: jest.Mock;
   };
 
   const mockSubscriptionService = {
@@ -28,6 +32,7 @@ describe('SubscriptionController', () => {
     pause: jest.fn(),
     resume: jest.fn(),
     cancel: jest.fn(),
+    addSkipDate: jest.fn(),
   };
 
   const mockRequest = {
@@ -166,6 +171,205 @@ describe('SubscriptionController', () => {
 
       expect(service.cancel).toHaveBeenCalledWith('user-123', 'sub-1');
       expect(result).toEqual({ id: 'sub-1', status: 'CANCELLED' });
+    });
+  });
+
+  describe('addSkipDate', () => {
+    const validDto: AddSkipDateDto = {
+      date: '2026-11-25',
+      reason: 'Customer not available',
+    };
+
+    it('should successfully add a skip date and delegate to service.addSkipDate', async () => {
+      const mockResult = {
+        id: 'skip-1',
+        subscriptionId: 'sub-1',
+        date: new Date('2026-11-25T00:00:00.000Z'),
+        reason: 'Customer not available',
+        createdAt: new Date(),
+      };
+      service.addSkipDate.mockResolvedValue(mockResult);
+
+      const result = await controller.addSkipDate(
+        mockRequest,
+        'sub-1',
+        validDto,
+      );
+
+      expect(service.addSkipDate).toHaveBeenCalledWith(
+        'user-123',
+        'sub-1',
+        validDto,
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should successfully add a skip date when optional reason is omitted', async () => {
+      const dtoWithoutReason: AddSkipDateDto = {
+        date: '2026-11-25',
+      };
+      const mockResult = {
+        id: 'skip-1',
+        subscriptionId: 'sub-1',
+        date: new Date('2026-11-25T00:00:00.000Z'),
+        reason: null,
+        createdAt: new Date(),
+      };
+      service.addSkipDate.mockResolvedValue(mockResult);
+
+      const result = await controller.addSkipDate(
+        mockRequest,
+        'sub-1',
+        dtoWithoutReason,
+      );
+
+      expect(service.addSkipDate).toHaveBeenCalledWith(
+        'user-123',
+        'sub-1',
+        dtoWithoutReason,
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should propagate NotFoundException when subscription is not found', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'non-existent', validDto),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(service.addSkipDate).toHaveBeenCalledWith(
+        'user-123',
+        'non-existent',
+        validDto,
+      );
+    });
+
+    it('should propagate NotFoundException when subscription belongs to another user', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'other-sub', validDto),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+    });
+
+    it('should propagate BadRequestException when subscription is PAUSED', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+    });
+
+    it('should propagate BadRequestException when subscription is CANCELLED', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+    });
+
+    it('should propagate BadRequestException when date format is invalid', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', {
+          date: 'invalid-date',
+        }),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT),
+      );
+    });
+
+    it('should propagate BadRequestException when date is in the past', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.CANNOT_SKIP_PAST_DATE),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', {
+          date: '2020-01-01',
+        }),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.CANNOT_SKIP_PAST_DATE),
+      );
+    });
+
+    it('should propagate BadRequestException when date is before subscription start date', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.SKIP_DATE_BEFORE_START_DATE,
+        ),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.SKIP_DATE_BEFORE_START_DATE,
+        ),
+      );
+    });
+
+    it('should propagate BadRequestException when date is after subscription end date', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.SKIP_DATE_AFTER_END_DATE),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.SKIP_DATE_AFTER_END_DATE),
+      );
+    });
+
+    it('should propagate BadRequestException when date does not match a scheduled delivery weekday', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DATE_NOT_IN_SCHEDULE),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DATE_NOT_IN_SCHEDULE),
+      );
+    });
+
+    it('should propagate BadRequestException when duplicate skip date', async () => {
+      service.addSkipDate.mockRejectedValue(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE),
+      );
+
+      await expect(
+        controller.addSkipDate(mockRequest, 'sub-1', validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE),
+      );
     });
   });
 });

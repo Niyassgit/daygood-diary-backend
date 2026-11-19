@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   DayOfWeek,
+  Prisma,
   ProductAvailability,
   ProductStatus,
   SubscriptionStatus,
@@ -12,6 +13,7 @@ import SUBSCRIPTION_MESSAGES from 'src/common/constants/subscription.message';
 import { CreateSubscriptionDto } from 'src/subscription/dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from 'src/subscription/dto/update-subscription.dto';
 import { UpdateSubscriptionScheduleDto } from 'src/subscription/dto/update-subscription-schedule.dto';
+import { AddSkipDateDto } from 'src/subscription/dto/add-skip-date.dto';
 
 describe('SubscriptionService', () => {
   let service: SubscriptionService;
@@ -21,12 +23,17 @@ describe('SubscriptionService', () => {
       create: jest.Mock;
       findMany: jest.Mock;
       findFirst: jest.Mock;
+      findUnique: jest.Mock;
       update: jest.Mock;
     };
     subscriptionSchedule: {
       findMany: jest.Mock;
       deleteMany: jest.Mock;
       createMany: jest.Mock;
+    };
+    subscriptionSkipDate: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -39,12 +46,17 @@ describe('SubscriptionService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     subscriptionSchedule: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
+    },
+    subscriptionSkipDate: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -830,6 +842,324 @@ describe('SubscriptionService', () => {
         ),
       );
       expect(prisma.subscription.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('addSkipDate', () => {
+    const userId = 'user-123';
+    const subscriptionId = 'sub-1';
+    const validDto: AddSkipDateDto = {
+      date: '2026-11-25',
+      reason: 'Customer not available',
+    };
+
+    const mockActiveSubscription = {
+      id: subscriptionId,
+      userId,
+      productId: 'prod-1',
+      status: SubscriptionStatus.ACTIVE,
+      startDate: new Date('2026-10-01T00:00:00.000Z'),
+      endDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      schedules: [
+        {
+          id: 'sch-1',
+          subscriptionId,
+          dayOfWeek: DayOfWeek.WEDNESDAY,
+          quantity: 2,
+        },
+      ],
+    };
+
+    const mockCreatedSkipDate = {
+      id: 'skip-1',
+      subscriptionId,
+      date: new Date('2026-11-25T00:00:00.000Z'),
+      reason: 'Customer not available',
+      createdAt: new Date(),
+    };
+
+    it('should successfully add a skip date to an ACTIVE subscription', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue(null);
+      prisma.subscriptionSkipDate.create.mockResolvedValue(mockCreatedSkipDate);
+
+      const result = await service.addSkipDate(
+        userId,
+        subscriptionId,
+        validDto,
+      );
+
+      expect(prisma.subscription.findUnique).toHaveBeenCalledWith({
+        where: { id: subscriptionId },
+        include: { schedules: true },
+      });
+      expect(prisma.subscriptionSkipDate.findUnique).toHaveBeenCalledWith({
+        where: {
+          subscriptionId_date: {
+            subscriptionId,
+            date: new Date('2026-11-25T00:00:00.000Z'),
+          },
+        },
+      });
+      expect(prisma.subscriptionSkipDate.create).toHaveBeenCalledWith({
+        data: {
+          subscriptionId,
+          date: new Date('2026-11-25T00:00:00.000Z'),
+          reason: 'Customer not available',
+        },
+      });
+      expect(result).toEqual(mockCreatedSkipDate);
+    });
+
+    it('should successfully add a skip date when optional reason is omitted', async () => {
+      const dtoWithoutReason: AddSkipDateDto = {
+        date: '2026-11-25',
+      };
+      const createdWithoutReason = {
+        ...mockCreatedSkipDate,
+        reason: null,
+      };
+
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue(null);
+      prisma.subscriptionSkipDate.create.mockResolvedValue(
+        createdWithoutReason,
+      );
+
+      const result = await service.addSkipDate(
+        userId,
+        subscriptionId,
+        dtoWithoutReason,
+      );
+
+      expect(prisma.subscriptionSkipDate.create).toHaveBeenCalledWith({
+        data: {
+          subscriptionId,
+          date: new Date('2026-11-25T00:00:00.000Z'),
+          reason: undefined,
+        },
+      });
+      expect(result).toEqual(createdWithoutReason);
+    });
+
+    it('should throw NotFoundException if subscription does not exist', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.addSkipDate(userId, 'non-existent-sub', validDto),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if subscription belongs to another user', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        userId: 'other-user',
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if subscription status is PAUSED', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        status: SubscriptionStatus.PAUSED,
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if subscription status is CANCELLED', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        status: SubscriptionStatus.CANCELLED,
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+        ),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for invalid date format or non-existent date', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+
+      const invalidDateCases = [
+        'invalid-date',
+        '2026/11/25',
+        '25-11-2026',
+        '2026-1-1',
+        '2026-02-31',
+        '2026-13-01',
+      ];
+
+      for (const invalidDate of invalidDateCases) {
+        await expect(
+          service.addSkipDate(userId, subscriptionId, { date: invalidDate }),
+        ).rejects.toThrow(
+          new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT),
+        );
+      }
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if date is in the past', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, { date: '2020-01-01' }),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.CANNOT_SKIP_PAST_DATE),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if date is before subscription start date', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        startDate: new Date('2026-12-01T00:00:00.000Z'),
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.SKIP_DATE_BEFORE_START_DATE,
+        ),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if date is after subscription end date', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        startDate: new Date('2026-10-01T00:00:00.000Z'),
+        endDate: new Date('2026-11-20T00:00:00.000Z'),
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.SKIP_DATE_AFTER_END_DATE),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if date does not match a scheduled delivery weekday', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockActiveSubscription,
+        schedules: [
+          {
+            id: 'sch-1',
+            subscriptionId,
+            dayOfWeek: DayOfWeek.MONDAY,
+            quantity: 1,
+          },
+        ],
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DATE_NOT_IN_SCHEDULE),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if skip date is a duplicate (existing record found)', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue({
+        id: 'existing-skip',
+        subscriptionId,
+        date: new Date('2026-11-25T00:00:00.000Z'),
+      });
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE),
+      );
+      expect(prisma.subscriptionSkipDate.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if Prisma throws unique constraint violation (P2002) on create', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockActiveSubscription);
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue(null);
+
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: '6.19.3',
+        },
+      );
+      prisma.subscriptionSkipDate.create.mockRejectedValue(p2002Error);
+
+      await expect(
+        service.addSkipDate(userId, subscriptionId, validDto),
+      ).rejects.toThrow(
+        new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE),
+      );
+    });
+
+    it('should allow skip date on the exact subscription start date', async () => {
+      const subscriptionStartingOnDate = {
+        ...mockActiveSubscription,
+        startDate: new Date('2026-11-25T00:00:00.000Z'),
+      };
+      prisma.subscription.findUnique.mockResolvedValue(
+        subscriptionStartingOnDate,
+      );
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue(null);
+      prisma.subscriptionSkipDate.create.mockResolvedValue(mockCreatedSkipDate);
+
+      const result = await service.addSkipDate(
+        userId,
+        subscriptionId,
+        validDto,
+      );
+
+      expect(result).toEqual(mockCreatedSkipDate);
+    });
+
+    it('should allow skip date on the exact subscription end date', async () => {
+      const subscriptionEndingOnDate = {
+        ...mockActiveSubscription,
+        endDate: new Date('2026-11-25T00:00:00.000Z'),
+      };
+      prisma.subscription.findUnique.mockResolvedValue(
+        subscriptionEndingOnDate,
+      );
+      prisma.subscriptionSkipDate.findUnique.mockResolvedValue(null);
+      prisma.subscriptionSkipDate.create.mockResolvedValue(mockCreatedSkipDate);
+
+      const result = await service.addSkipDate(
+        userId,
+        subscriptionId,
+        validDto,
+      );
+
+      expect(result).toEqual(mockCreatedSkipDate);
     });
   });
 });

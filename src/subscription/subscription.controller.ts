@@ -15,6 +15,7 @@ import type { AuthenticatedRequest } from 'src/auth/types/authenticated-request'
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { UpdateSubscriptionScheduleDto } from './dto/update-subscription-schedule.dto';
+import { AddSkipDateDto } from './dto/add-skip-date.dto';
 
 @Controller('subscription')
 @UseGuards(AccessTokenGuard)
@@ -101,5 +102,18 @@ export class SubscriptionController {
     @Param('id') subscriptionId: string,
   ) {
     return this.subscriptionService.cancel(req.user.userId, subscriptionId);
+  }
+
+  @Post(':id/skip-dates')
+  async addSkipDate(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') subscriptionId: string,
+    @Body() dto: AddSkipDateDto,
+  ) {
+    return this.subscriptionService.addSkipDate(
+      req.user.userId,
+      subscriptionId,
+      dto,
+    );
   }
 }

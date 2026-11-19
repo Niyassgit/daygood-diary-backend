@@ -3,12 +3,36 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SubscriptionStatus } from '@prisma/client';
+import { DayOfWeek, Prisma, SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import SUBSCRIPTION_MESSAGES from 'src/common/constants/subscription.message';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { UpdateSubscriptionScheduleDto } from './dto/update-subscription-schedule.dto';
+import { AddSkipDateDto } from './dto/add-skip-date.dto';
+
+const DAY_OF_WEEK_MAP: Record<number, DayOfWeek> = {
+  0: DayOfWeek.SUNDAY,
+  1: DayOfWeek.MONDAY,
+  2: DayOfWeek.TUESDAY,
+  3: DayOfWeek.WEDNESDAY,
+  4: DayOfWeek.THURSDAY,
+  5: DayOfWeek.FRIDAY,
+  6: DayOfWeek.SATURDAY,
+};
+
+function toCalendarDateString(
+  date: Date | string,
+  timeZone = 'Asia/Kolkata',
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
 
 @Injectable()
 export class SubscriptionService {
@@ -318,5 +342,125 @@ export class SubscriptionService {
         skipDates: true,
       },
     });
+  }
+
+  async addSkipDate(
+    userId: string,
+    subscriptionId: string,
+    dto: AddSkipDateDto,
+  ) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: {
+        id: subscriptionId,
+      },
+      include: {
+        schedules: true,
+      },
+    });
+
+    if (!subscription || subscription.userId !== userId) {
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.ONLY_ACTIVE_CAN_ADD_SKIP_DATE,
+      );
+    }
+
+    if (!dto.date || typeof dto.date !== 'string') {
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT);
+    }
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dto.date);
+    if (!match) {
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT);
+    }
+
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
+
+    const normalizedDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+    if (
+      normalizedDate.getUTCFullYear() !== year ||
+      normalizedDate.getUTCMonth() !== month - 1 ||
+      normalizedDate.getUTCDate() !== day
+    ) {
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.INVALID_DATE_FORMAT);
+    }
+
+    const todayStr = toCalendarDateString(new Date());
+    if (dto.date < todayStr) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.CANNOT_SKIP_PAST_DATE,
+      );
+    }
+
+    const startDateStr = toCalendarDateString(subscription.startDate);
+    if (dto.date < startDateStr) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.SKIP_DATE_BEFORE_START_DATE,
+      );
+    }
+
+    if (subscription.endDate) {
+      const endDateStr = toCalendarDateString(subscription.endDate);
+      if (dto.date > endDateStr) {
+        throw new BadRequestException(
+          SUBSCRIPTION_MESSAGES.SKIP_DATE_AFTER_END_DATE,
+        );
+      }
+    }
+
+    const dayOfWeek = DAY_OF_WEEK_MAP[normalizedDate.getUTCDay()];
+    const schedules = subscription.schedules || [];
+    const isScheduledDay = schedules.some(
+      (schedule) =>
+        schedule.dayOfWeek === dayOfWeek &&
+        (schedule.quantity === undefined || schedule.quantity > 0),
+    );
+
+    if (!isScheduledDay) {
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.DATE_NOT_IN_SCHEDULE);
+    }
+
+    const existingSkipDate = await this.prisma.subscriptionSkipDate.findUnique({
+      where: {
+        subscriptionId_date: {
+          subscriptionId,
+          date: normalizedDate,
+        },
+      },
+    });
+
+    if (existingSkipDate) {
+      throw new BadRequestException(SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE);
+    }
+
+    try {
+      return await this.prisma.subscriptionSkipDate.create({
+        data: {
+          subscriptionId,
+          date: normalizedDate,
+          reason: dto.reason,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002') ||
+        (typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          (error as { code?: unknown }).code === 'P2002')
+      ) {
+        throw new BadRequestException(
+          SUBSCRIPTION_MESSAGES.DUPLICATE_SKIP_DATE,
+        );
+      }
+      throw error;
+    }
   }
 }

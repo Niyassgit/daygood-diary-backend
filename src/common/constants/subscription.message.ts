@@ -15,6 +15,17 @@ const SUBSCRIPTION_MESSAGES = {
   SUBSCRIPTION_ALREADY_CANCELLED: 'Subscription is already cancelled',
   CANNOT_CANCEL_SUBSCRIPTION:
     'Only active or paused subscriptions can be cancelled',
+  ONLY_ACTIVE_CAN_ADD_SKIP_DATE:
+    'Only active subscriptions can accept skip dates',
+  INVALID_DATE_FORMAT: 'Invalid date format. Expected YYYY-MM-DD',
+  CANNOT_SKIP_PAST_DATE: 'Skip date cannot be in the past',
+  SKIP_DATE_BEFORE_START_DATE:
+    'Skip date cannot be earlier than subscription start date',
+  SKIP_DATE_AFTER_END_DATE:
+    'Skip date cannot be later than subscription end date',
+  DATE_NOT_IN_SCHEDULE:
+    'Skip date does not correspond to a scheduled delivery day',
+  DUPLICATE_SKIP_DATE: 'Skip date already exists for this subscription',
 };
 
 export default SUBSCRIPTION_MESSAGES;

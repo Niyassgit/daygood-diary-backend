@@ -20,6 +20,7 @@ describe('SubscriptionController', () => {
     resume: jest.Mock;
     cancel: jest.Mock;
     addSkipDate: jest.Mock;
+    getSkipDates: jest.Mock;
   };
 
   const mockSubscriptionService = {
@@ -33,6 +34,7 @@ describe('SubscriptionController', () => {
     resume: jest.fn(),
     cancel: jest.fn(),
     addSkipDate: jest.fn(),
+    getSkipDates: jest.fn(),
   };
 
   const mockRequest = {
@@ -171,6 +173,63 @@ describe('SubscriptionController', () => {
 
       expect(service.cancel).toHaveBeenCalledWith('user-123', 'sub-1');
       expect(result).toEqual({ id: 'sub-1', status: 'CANCELLED' });
+    });
+  });
+
+  describe('getSkipDates', () => {
+    it('should delegate to service.getSkipDates with userId and id', async () => {
+      const mockSkipDates = [
+        {
+          id: 'skip-1',
+          subscriptionId: 'sub-1',
+          date: new Date('2026-11-25T00:00:00.000Z'),
+          reason: 'Out of town',
+          createdAt: new Date(),
+        },
+      ];
+      service.getSkipDates.mockResolvedValue(mockSkipDates);
+
+      const result = await controller.getSkipDates(mockRequest, 'sub-1');
+
+      expect(service.getSkipDates).toHaveBeenCalledWith('user-123', 'sub-1');
+      expect(result).toEqual(mockSkipDates);
+    });
+
+    it('should return empty array when no skip dates exist', async () => {
+      service.getSkipDates.mockResolvedValue([]);
+
+      const result = await controller.getSkipDates(mockRequest, 'sub-1');
+
+      expect(service.getSkipDates).toHaveBeenCalledWith('user-123', 'sub-1');
+      expect(result).toEqual([]);
+    });
+
+    it('should propagate NotFoundException when subscription is not found', async () => {
+      service.getSkipDates.mockRejectedValue(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+
+      await expect(
+        controller.getSkipDates(mockRequest, 'non-existent'),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(service.getSkipDates).toHaveBeenCalledWith(
+        'user-123',
+        'non-existent',
+      );
+    });
+
+    it('should propagate NotFoundException when subscription belongs to another user', async () => {
+      service.getSkipDates.mockRejectedValue(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+
+      await expect(
+        controller.getSkipDates(mockRequest, 'other-sub'),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
     });
   });
 

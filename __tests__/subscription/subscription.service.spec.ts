@@ -33,6 +33,7 @@ describe('SubscriptionService', () => {
     };
     subscriptionSkipDate: {
       findUnique: jest.Mock;
+      findMany: jest.Mock;
       create: jest.Mock;
     };
     $transaction: jest.Mock;
@@ -56,6 +57,7 @@ describe('SubscriptionService', () => {
     },
     subscriptionSkipDate: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -1160,6 +1162,117 @@ describe('SubscriptionService', () => {
       );
 
       expect(result).toEqual(mockCreatedSkipDate);
+    });
+  });
+
+  describe('getSkipDates', () => {
+    const userId = 'user-123';
+    const subscriptionId = 'sub-1';
+
+    const mockSubscription = {
+      id: subscriptionId,
+      userId,
+      productId: 'prod-1',
+      status: SubscriptionStatus.ACTIVE,
+      startDate: new Date('2026-10-01T00:00:00.000Z'),
+      endDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const mockSkipDates = [
+      {
+        id: 'skip-1',
+        subscriptionId,
+        date: new Date('2026-11-25T00:00:00.000Z'),
+        reason: 'Customer not available',
+        createdAt: new Date('2026-11-19T10:00:00.000Z'),
+      },
+      {
+        id: 'skip-2',
+        subscriptionId,
+        date: new Date('2026-12-02T00:00:00.000Z'),
+        reason: 'Out of town',
+        createdAt: new Date('2026-11-19T11:00:00.000Z'),
+      },
+    ];
+
+    it('should return all skip dates for an ACTIVE subscription sorted by date asc', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockSubscription);
+      prisma.subscriptionSkipDate.findMany.mockResolvedValue(mockSkipDates);
+
+      const result = await service.getSkipDates(userId, subscriptionId);
+
+      expect(prisma.subscription.findUnique).toHaveBeenCalledWith({
+        where: { id: subscriptionId },
+      });
+      expect(prisma.subscriptionSkipDate.findMany).toHaveBeenCalledWith({
+        where: { subscriptionId },
+        orderBy: { date: 'asc' },
+      });
+      expect(result).toEqual(mockSkipDates);
+    });
+
+    it('should allow retrieval for PAUSED subscriptions', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockSubscription,
+        status: SubscriptionStatus.PAUSED,
+      });
+      prisma.subscriptionSkipDate.findMany.mockResolvedValue(mockSkipDates);
+
+      const result = await service.getSkipDates(userId, subscriptionId);
+
+      expect(result).toEqual(mockSkipDates);
+    });
+
+    it('should allow retrieval for CANCELLED subscriptions', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockSubscription,
+        status: SubscriptionStatus.CANCELLED,
+      });
+      prisma.subscriptionSkipDate.findMany.mockResolvedValue(mockSkipDates);
+
+      const result = await service.getSkipDates(userId, subscriptionId);
+
+      expect(result).toEqual(mockSkipDates);
+    });
+
+    it('should return an empty array if no skip dates exist for the subscription', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(mockSubscription);
+      prisma.subscriptionSkipDate.findMany.mockResolvedValue([]);
+
+      const result = await service.getSkipDates(userId, subscriptionId);
+
+      expect(prisma.subscriptionSkipDate.findMany).toHaveBeenCalledWith({
+        where: { subscriptionId },
+        orderBy: { date: 'asc' },
+      });
+      expect(result).toEqual([]);
+    });
+
+    it('should throw NotFoundException if subscription does not exist', async () => {
+      prisma.subscription.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getSkipDates(userId, 'non-existent-sub'),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(prisma.subscriptionSkipDate.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if subscription belongs to another user', async () => {
+      prisma.subscription.findUnique.mockResolvedValue({
+        ...mockSubscription,
+        userId: 'other-user',
+      });
+
+      await expect(
+        service.getSkipDates(userId, subscriptionId),
+      ).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(prisma.subscriptionSkipDate.findMany).not.toHaveBeenCalled();
     });
   });
 });

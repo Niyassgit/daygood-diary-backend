@@ -463,4 +463,25 @@ export class SubscriptionService {
       throw error;
     }
   }
+
+  async getSkipDates(userId: string, subscriptionId: string) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: {
+        id: subscriptionId,
+      },
+    });
+
+    if (!subscription || subscription.userId !== userId) {
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    return this.prisma.subscriptionSkipDate.findMany({
+      where: {
+        subscriptionId,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+  }
 }

@@ -104,6 +104,17 @@ export class SubscriptionController {
     return this.subscriptionService.cancel(req.user.userId, subscriptionId);
   }
 
+  @Get(':id/skip-dates')
+  async getSkipDates(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') subscriptionId: string,
+  ) {
+    return this.subscriptionService.getSkipDates(
+      req.user.userId,
+      subscriptionId,
+    );
+  }
+
   @Post(':id/skip-dates')
   async addSkipDate(
     @Req() req: AuthenticatedRequest,

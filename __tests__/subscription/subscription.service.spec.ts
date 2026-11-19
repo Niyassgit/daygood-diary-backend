@@ -708,4 +708,128 @@ describe('SubscriptionService', () => {
       expect(prisma.subscription.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('cancel', () => {
+    const userId = 'user-123';
+    const subscriptionId = 'sub-1';
+    const mockExistingSubscription = {
+      id: subscriptionId,
+      userId,
+      productId: 'prod-1',
+      status: SubscriptionStatus.ACTIVE,
+      startDate: new Date('2026-09-01T00:00:00.000Z'),
+      endDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('should successfully cancel an ACTIVE subscription and preserve schedules and skip dates', async () => {
+      const mockSchedules = [
+        {
+          id: 'sch-1',
+          subscriptionId,
+          dayOfWeek: DayOfWeek.MONDAY,
+          quantity: 2,
+        },
+      ];
+      const mockSkipDates = [
+        {
+          id: 'skip-1',
+          subscriptionId,
+          date: new Date('2026-09-15'),
+          reason: 'Out of town',
+        },
+      ];
+
+      const mockCancelledSubscription = {
+        ...mockExistingSubscription,
+        status: SubscriptionStatus.CANCELLED,
+        product: { id: 'prod-1', name: 'Fresh Milk' },
+        schedules: mockSchedules,
+        skipDates: mockSkipDates,
+      };
+
+      prisma.subscription.findFirst.mockResolvedValue(mockExistingSubscription);
+      prisma.subscription.update.mockResolvedValue(mockCancelledSubscription);
+
+      const result = await service.cancel(userId, subscriptionId);
+
+      expect(prisma.subscription.findFirst).toHaveBeenCalledWith({
+        where: { id: subscriptionId, userId },
+      });
+      expect(prisma.subscription.update).toHaveBeenCalledWith({
+        where: { id: subscriptionId },
+        data: {
+          status: SubscriptionStatus.CANCELLED,
+        },
+        include: {
+          product: true,
+          schedules: true,
+          skipDates: true,
+        },
+      });
+      expect(result).toEqual(mockCancelledSubscription);
+      expect(result.status).toBe(SubscriptionStatus.CANCELLED);
+      expect(result.schedules).toEqual(mockSchedules);
+      expect(result.skipDates).toEqual(mockSkipDates);
+    });
+
+    it('should successfully cancel a PAUSED subscription and preserve schedules and skip dates', async () => {
+      const mockPausedSubscription = {
+        ...mockExistingSubscription,
+        status: SubscriptionStatus.PAUSED,
+      };
+      const mockCancelledSubscription = {
+        ...mockExistingSubscription,
+        status: SubscriptionStatus.CANCELLED,
+        product: { id: 'prod-1', name: 'Fresh Milk' },
+        schedules: [],
+        skipDates: [],
+      };
+
+      prisma.subscription.findFirst.mockResolvedValue(mockPausedSubscription);
+      prisma.subscription.update.mockResolvedValue(mockCancelledSubscription);
+
+      const result = await service.cancel(userId, subscriptionId);
+
+      expect(prisma.subscription.findFirst).toHaveBeenCalledWith({
+        where: { id: subscriptionId, userId },
+      });
+      expect(prisma.subscription.update).toHaveBeenCalledWith({
+        where: { id: subscriptionId },
+        data: {
+          status: SubscriptionStatus.CANCELLED,
+        },
+        include: {
+          product: true,
+          schedules: true,
+          skipDates: true,
+        },
+      });
+      expect(result.status).toBe(SubscriptionStatus.CANCELLED);
+    });
+
+    it('should throw NotFoundException if subscription does not exist or user is not owner', async () => {
+      prisma.subscription.findFirst.mockResolvedValue(null);
+
+      await expect(service.cancel(userId, subscriptionId)).rejects.toThrow(
+        new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND),
+      );
+      expect(prisma.subscription.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if subscription is already CANCELLED', async () => {
+      prisma.subscription.findFirst.mockResolvedValue({
+        ...mockExistingSubscription,
+        status: SubscriptionStatus.CANCELLED,
+      });
+
+      await expect(service.cancel(userId, subscriptionId)).rejects.toThrow(
+        new BadRequestException(
+          SUBSCRIPTION_MESSAGES.SUBSCRIPTION_ALREADY_CANCELLED,
+        ),
+      );
+      expect(prisma.subscription.update).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -94,4 +94,12 @@ export class SubscriptionController {
   ) {
     return this.subscriptionService.resume(req.user.userId, subscriptionId);
   }
+
+  @Patch(':id/cancel')
+  async cancel(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') subscriptionId: string,
+  ) {
+    return this.subscriptionService.cancel(req.user.userId, subscriptionId);
+  }
 }

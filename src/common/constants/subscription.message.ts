@@ -12,6 +12,9 @@ const SUBSCRIPTION_MESSAGES = {
   CANNOT_RESUME_CANCELLED_SUBSCRIPTION:
     'Cannot resume a cancelled subscription',
   ONLY_PAUSED_CAN_BE_RESUMED: 'Only paused subscriptions can be resumed',
+  SUBSCRIPTION_ALREADY_CANCELLED: 'Subscription is already cancelled',
+  CANNOT_CANCEL_SUBSCRIPTION:
+    'Only active or paused subscriptions can be cancelled',
 };
 
 export default SUBSCRIPTION_MESSAGES;

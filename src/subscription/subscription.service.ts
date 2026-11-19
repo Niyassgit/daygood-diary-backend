@@ -277,4 +277,46 @@ export class SubscriptionService {
       },
     });
   }
+
+  async cancel(userId: string, id: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(SUBSCRIPTION_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+    }
+
+    if (subscription.status === SubscriptionStatus.CANCELLED) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.SUBSCRIPTION_ALREADY_CANCELLED,
+      );
+    }
+
+    if (
+      subscription.status !== SubscriptionStatus.ACTIVE &&
+      subscription.status !== SubscriptionStatus.PAUSED
+    ) {
+      throw new BadRequestException(
+        SUBSCRIPTION_MESSAGES.CANNOT_CANCEL_SUBSCRIPTION,
+      );
+    }
+
+    return this.prisma.subscription.update({
+      where: {
+        id,
+      },
+      data: {
+        status: SubscriptionStatus.CANCELLED,
+      },
+      include: {
+        product: true,
+        schedules: true,
+        skipDates: true,
+      },
+    });
+  }
 }

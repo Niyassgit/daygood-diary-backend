@@ -15,6 +15,7 @@ describe('SubscriptionController', () => {
     updateSchedule: jest.Mock;
     pause: jest.Mock;
     resume: jest.Mock;
+    cancel: jest.Mock;
   };
 
   const mockSubscriptionService = {
@@ -26,6 +27,7 @@ describe('SubscriptionController', () => {
     updateSchedule: jest.fn(),
     pause: jest.fn(),
     resume: jest.fn(),
+    cancel: jest.fn(),
   };
 
   const mockRequest = {
@@ -153,6 +155,17 @@ describe('SubscriptionController', () => {
 
       expect(service.resume).toHaveBeenCalledWith('user-123', 'sub-1');
       expect(result).toEqual({ id: 'sub-1', status: 'ACTIVE' });
+    });
+  });
+
+  describe('cancel', () => {
+    it('should delegate to service.cancel with userId and id', async () => {
+      service.cancel.mockResolvedValue({ id: 'sub-1', status: 'CANCELLED' });
+
+      const result = await controller.cancel(mockRequest, 'sub-1');
+
+      expect(service.cancel).toHaveBeenCalledWith('user-123', 'sub-1');
+      expect(result).toEqual({ id: 'sub-1', status: 'CANCELLED' });
     });
   });
 });
